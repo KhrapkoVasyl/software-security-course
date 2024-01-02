@@ -1,34 +1,45 @@
+// axios({ TODO
+// method: 'post',
+// url: '/api/refresh-tokens',
+// data: { refreshToken },
+// }).then((response) => {
+// console.log('\n\nResponse: ', response, '\n\n');
+// console.log('\n\nResponse data: ', response.data, '\n\n');
+// });
+
 const session = sessionStorage.getItem('session');
 
-let token;
+let accessToken;
+let refreshToken;
 
 try {
-  token = JSON.parse(session).token;
+  const tokens = JSON.parse(session);
+  accessToken = tokens.accessToken;
+  refreshToken = tokens.refreshToken;
 } catch {}
 
-if (token) {
-  console.log(token);
+if (accessToken) {
+  console.log(accessToken);
   axios
     .get('/', {
       headers: {
-        Authorization: token,
+        Authorization: accessToken,
       },
     })
     .then((response) => {
-      const { username, expDate } = response.data;
+      const { email } = response.data;
 
       console.log('Response: ', response);
-      if (username) {
+      if (email) {
         const mainHolder = document.getElementById('main-holder');
         const loginHeader = document.getElementById('login-header');
 
         loginForm.remove();
         loginErrorMsg.remove();
         loginHeader.remove();
+        registrationLink.remove();
 
-        let messageToAppend = expDate
-          ? `Hello ${username}. Expiration date: ${expDate}`
-          : `Hello ${username}`;
+        let messageToAppend = `You are currently logged in with email:  ${email}`;
 
         mainHolder.append(messageToAppend);
         logoutLink.style.opacity = 1;
@@ -40,6 +51,7 @@ const loginForm = document.querySelector('.form');
 const loginButton = document.querySelector('.form-submit');
 const loginErrorMsg = document.querySelector('.error-msg');
 const logoutLink = document.getElementById('logout');
+const registrationLink = document.getElementById('registration-link');
 
 logoutLink.addEventListener('click', (e) => {
   e.preventDefault();
@@ -63,8 +75,9 @@ loginButton.addEventListener('click', (e) => {
     .then((response) => {
       sessionStorage.setItem('session', JSON.stringify(response.data));
       location.reload();
+      // setTimeout(() => location.reload(), 10000); For demonstration
     })
-    .catch((response) => {
+    .catch(() => {
       loginErrorMsg.style.opacity = 1;
     });
 });
