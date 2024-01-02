@@ -1,8 +1,14 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const path = require('path');
-const jwt = require('jsonwebtoken');
-require('dotenv').config();
+import express from 'express';
+import bodyParser from 'body-parser';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+import { port } from './config.js';
+import { authService } from './services/auth.service.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 
@@ -10,79 +16,91 @@ app.use(express.static('src/pages'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const TOKEN_HEADER = 'Authorization';
-const port = 3000;
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN;
-
 const sendUnauthorizedRes = (res) => res.status(401).send('Unauthorized');
 
-app.use((req, res, next) => {
-  console.log(new Date());
-  console.log(req.headers);
-  const token = req.get(TOKEN_HEADER);
-  console.log(token);
-  if (!token) {
-    return next();
-  }
+// TODO: implement parsing JWT token payload using base64
 
-  console.log('\n\nHere\n\n');
+// app.use((req, res, next) => {
+//   console.log(new Date());
+//   console.log(req.headers);
+//   const token = req.get(TOKEN_HEADER);
+//   console.log(token);
+//   if (!token) {
+//     return next();
+//   }
 
-  try {
-    const { username, exp } = jwt.verify(token, JWT_SECRET);
-    const expDate = new Date(exp * 1000);
+//   console.log('\n\nHere\n\n');
 
-    req.user = { username };
-    req.expDate = expDate;
-  } catch {
-    return sendUnauthorizedRes(res);
-  }
+//   try {
+//     // const { username, exp } = jwt.verify(token, JWT_SECRET);
+//     // const expDate = new Date(exp * 1000);
+//     const expDate = new Date(new Date() * 1000); // TODO
 
-  return next();
-});
+//     req.user = { username };
+//     req.expDate = expDate;
+//   } catch {
+//     return sendUnauthorizedRes(res);
+//   }
+
+//   return next();
+// });
 
 app.get('/', (req, res) => {
-  const username = req.user?.username;
-  console.log(username);
-  if (username) {
-    return res.json({ username, expDate: req.expDate });
+  const email = req.user?.email;
+  console.log(email);
+  if (email) {
+    return res.json({ email, expDate: req.expDate });
   }
   res.sendFile(path.join(__dirname, 'pages/login.html'));
 });
 
 app.get('/registration', (req, res) => {
-  console.log('\n\nHELLO\n\n');
   res.sendFile(path.join(__dirname, 'pages/registration.html'));
 });
 
-const users = [
-  {
-    login: 'Login',
-    password: 'Password',
-    username: 'Username',
-  },
-  {
-    login: 'Login1',
-    password: 'Password1',
-    username: 'Username1',
-  },
-];
-
 app.post('/api/login', (req, res) => {
-  const { login, password } = req.body;
+  const { login: email, password } = req.body;
 
-  const user = users.find(
-    (user) => user.login === login && user.password === password
-  );
+  return authService
+    .login({ email, password })
+    .then(({ data }) =>
+      res.status(201).json({
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+      })
+    )
+    .catch(() => sendUnauthorizedRes(res));
+});
 
-  if (user) {
-    const token = jwt.sign({ username: user.username }, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN,
-    });
-    return res.json({ token });
+app.post('/api/refresh-tokens', (req, res) => {
+  const { refreshToken } = req.body;
+
+  return authService
+    .refreshTokens(refreshToken)
+    .then((result) => {
+      const { data } = result;
+      return res.status(201).json({
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+      });
+    })
+    .catch(() => res.status(400).send(err.message));
+});
+
+app.post('/api/registration', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    await authService.register({ email, password });
+    const { data } = await authService.login({ email, password });
+    const tokens = {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+    };
+    return res.status(201).send(tokens);
+  } catch (err) {
+    return res.status(400).send(err.message);
   }
-
-  return sendUnauthorizedRes(res);
 });
 
 app.listen(port, () => {
