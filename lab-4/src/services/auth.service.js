@@ -1,5 +1,10 @@
-import { AUTH0_CONNECTION, AUTH0_PASSWORD_GRANT_SCOPE } from '../config.js';
+import {
+  AUTH0_AUDIENCE,
+  AUTH0_CONNECTION,
+  AUTH0_PASSWORD_GRANT_SCOPE,
+} from '../config.js';
 import { authClient } from './auth.client.js';
+import { managementClient } from './management.client.js';
 
 class AuthService {
   #authClient;
@@ -15,6 +20,7 @@ class AuthService {
       username: email,
       password,
       scope: AUTH0_PASSWORD_GRANT_SCOPE,
+      audience: AUTH0_AUDIENCE,
     });
   }
 
@@ -33,8 +39,17 @@ class AuthService {
   }
 
   getUser(conditions) {
-    return this.#managementClient.users.get(conditions);
+    return this.#managementClient.users
+      .get(conditions)
+      .then(({ data }) => data);
+  }
+
+  async verifyAccessToken(bearerToken) {
+    const token = bearerToken.split(' ').pop();
+    const payloadBase64 = token.split('.')[1];
+    const payloadString = atob(payloadBase64);
+    return JSON.parse(payloadString);
   }
 }
 
-export const authService = new AuthService(authClient);
+export const authService = new AuthService(authClient, managementClient);

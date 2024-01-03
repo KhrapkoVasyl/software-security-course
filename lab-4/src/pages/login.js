@@ -1,11 +1,12 @@
-// axios({ TODO
-// method: 'post',
-// url: '/api/refresh-tokens',
-// data: { refreshToken },
-// }).then((response) => {
-// console.log('\n\nResponse: ', response, '\n\n');
-// console.log('\n\nResponse data: ', response.data, '\n\n');
-// });
+const retrieveTimeBeforeAccessTokenExpiry = (accessToken) => {
+  const payloadBase64 = accessToken.split('.')[1];
+  const payloadString = atob(payloadBase64);
+  const { exp } = JSON.parse(payloadString);
+
+  const currentTimestamp = Math.floor(Date.now() / 1000);
+  return exp - currentTimestamp;
+};
+const REFRESH_ACCESS_TOKEN_THRESHOLD_SEC = 4 * 60;
 
 const session = sessionStorage.getItem('session');
 
@@ -18,33 +19,65 @@ try {
   refreshToken = tokens.refreshToken;
 } catch {}
 
-if (accessToken) {
-  console.log(accessToken);
-  axios
-    .get('/', {
-      headers: {
-        Authorization: accessToken,
-      },
-    })
-    .then((response) => {
-      const { email } = response.data;
+if (accessToken && refreshToken) {
+  (async () => {
+    const timeBeforeAccessTokenExpiration =
+      retrieveTimeBeforeAccessTokenExpiry(accessToken);
 
-      console.log('Response: ', response);
-      if (email) {
-        const mainHolder = document.getElementById('main-holder');
-        const loginHeader = document.getElementById('login-header');
+    if (timeBeforeAccessTokenExpiration <= REFRESH_ACCESS_TOKEN_THRESHOLD_SEC) {
+      await axios({
+        method: 'post',
+        url: '/api/refresh-tokens',
+        data: { refreshToken },
+      })
+        .then(({ data }) => {
+          accessToken = data.accessToken;
+          refreshToken = data.refreshToken;
 
-        loginForm.remove();
-        loginErrorMsg.remove();
-        loginHeader.remove();
-        registrationLink.remove();
+          sessionStorage.setItem(
+            'session',
+            JSON.stringify({ accessToken, refreshToken })
+          );
+        })
+        .catch(() => {
+          sessionStorage.removeItem('session');
+          location.reload();
+        });
+    }
 
-        let messageToAppend = `You are currently logged in with email:  ${email}`;
+    await axios
+      .get('/', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+      .then((response) => {
+        const { email } = response.data;
 
-        mainHolder.append(messageToAppend);
-        logoutLink.style.opacity = 1;
-      }
-    });
+        if (email) {
+          const mainHolder = document.getElementById('main-holder');
+          const loginHeader = document.getElementById('login-header');
+
+          loginForm.remove();
+          loginErrorMsg.remove();
+          loginHeader.remove();
+          registrationLink.remove();
+
+          const expirationTimeSec =
+            retrieveTimeBeforeAccessTokenExpiry(accessToken);
+
+          let currentUserEmailMessage = `You are currently logged in with email:  ${email}`;
+          let tokenExpirationMessage = `Time before access token expiration: ${expirationTimeSec} seconds`;
+          const p1 = document.createElement('p');
+          const p2 = document.createElement('p');
+          p1.textContent = currentUserEmailMessage;
+          p2.textContent = tokenExpirationMessage;
+
+          mainHolder.append(p1, p2);
+          logoutLink.style.opacity = 1;
+        }
+      });
+  })();
 }
 
 const loginForm = document.querySelector('.form');

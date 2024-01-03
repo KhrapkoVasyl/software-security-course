@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
-import { port } from './config.js';
+import { TOKEN_HEADER, port } from './config.js';
 import { authService } from './services/auth.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,38 +18,30 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 const sendUnauthorizedRes = (res) => res.status(401).send('Unauthorized');
 
-// TODO: implement parsing JWT token payload using base64
+app.use(async (req, res, next) => {
+  const bearerToken = req.get(TOKEN_HEADER);
 
-// app.use((req, res, next) => {
-//   console.log(new Date());
-//   console.log(req.headers);
-//   const token = req.get(TOKEN_HEADER);
-//   console.log(token);
-//   if (!token) {
-//     return next();
-//   }
+  if (!bearerToken) {
+    return next();
+  }
 
-//   console.log('\n\nHere\n\n');
+  try {
+    const { sub: userId } = await authService.verifyAccessToken(bearerToken);
 
-//   try {
-//     // const { username, exp } = jwt.verify(token, JWT_SECRET);
-//     // const expDate = new Date(exp * 1000);
-//     const expDate = new Date(new Date() * 1000); // TODO
+    const user = await authService.getUser({ id: userId });
+    req.user = user;
+  } catch {
+    return sendUnauthorizedRes(res);
+  }
 
-//     req.user = { username };
-//     req.expDate = expDate;
-//   } catch {
-//     return sendUnauthorizedRes(res);
-//   }
-
-//   return next();
-// });
+  return next();
+});
 
 app.get('/', (req, res) => {
   const email = req.user?.email;
-  console.log(email);
+
   if (email) {
-    return res.json({ email, expDate: req.expDate });
+    return res.json({ email });
   }
   res.sendFile(path.join(__dirname, 'pages/login.html'));
 });
@@ -84,7 +76,9 @@ app.post('/api/refresh-tokens', (req, res) => {
         refreshToken: data.refresh_token,
       });
     })
-    .catch(() => res.status(400).send(err.message));
+    .catch((err) => {
+      res.status(400).send(err.message);
+    });
 });
 
 app.post('/api/registration', async (req, res) => {
