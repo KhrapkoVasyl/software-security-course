@@ -4,8 +4,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
-import { TOKEN_HEADER, port } from './config.js';
+import { port } from './config.js';
 import { authService } from './services/auth.service.js';
+import { verifyAuth0Jwt } from './middlewares/verify-auth0-jwt.middleware.js';
+import { retrieveUserFromJwtPayload } from './middlewares/retrieve-user-from-jwt-payload.middleware.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,25 +19,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 const sendUnauthorizedRes = (res) => res.status(401).send('Unauthorized');
-
-app.use(async (req, res, next) => {
-  const bearerToken = req.get(TOKEN_HEADER);
-
-  if (!bearerToken) {
-    return next();
-  }
-
-  try {
-    const { sub: userId } = await authService.verifyAccessToken(bearerToken);
-
-    const user = await authService.getUser({ id: userId });
-    req.user = user;
-  } catch {
-    return sendUnauthorizedRes(res);
-  }
-
-  return next();
-});
 
 app.get('/profile', (req, res) => {
   res.sendFile(path.join(__dirname, 'pages/profile.html'));
@@ -53,15 +36,20 @@ app.get('/registration', (req, res) => {
   res.sendFile(path.join(__dirname, 'pages/registration.html'));
 });
 
-app.get('/api/profile', (req, res) => {
-  const email = req.user?.email;
+app.get(
+  '/api/profile',
+  verifyAuth0Jwt,
+  retrieveUserFromJwtPayload,
+  (req, res) => {
+    const email = req.user?.email;
 
-  if (email) {
-    return res.json({ email });
+    if (email) {
+      return res.json({ email });
+    }
+
+    return res.status(404).send('User profile was not found');
   }
-
-  return res.status(404).send(`User profile was not found`);
-});
+);
 
 app.post('/api/login', (req, res) => {
   const { login: email, password } = req.body;

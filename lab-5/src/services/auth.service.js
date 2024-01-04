@@ -43,13 +43,6 @@ class AuthService {
       .get(conditions)
       .then(({ data }) => data);
   }
-
-  async verifyAccessToken(bearerToken) {
-    const token = bearerToken.split(' ').pop();
-    const payloadBase64 = token.split('.')[1];
-    const payloadString = atob(payloadBase64);
-    return JSON.parse(payloadString);
-  }
 }
 
 export const authService = new AuthService(authClient, managementClient);
