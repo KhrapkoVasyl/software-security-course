@@ -61,6 +61,20 @@ app.post('/api/login', (req, res) => {
     .catch(() => sendUnauthorizedRes(res));
 });
 
+app.post('/api/login/code', (req, res) => {
+  const { code } = req.body;
+
+  return authService
+    .loginByAuthCode(code)
+    .then(({ data }) => {
+      res.status(201).json({
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+      });
+    })
+    .catch(() => sendUnauthorizedRes(res));
+});
+
 app.post('/api/refresh-tokens', (req, res) => {
   const { refreshToken } = req.body;
 

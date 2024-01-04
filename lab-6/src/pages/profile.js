@@ -8,22 +8,6 @@ const retrieveTimeBeforeAccessTokenExpiry = (accessToken) => {
 };
 const REFRESH_ACCESS_TOKEN_THRESHOLD_SEC = 4 * 60;
 
-const session = sessionStorage.getItem('session');
-
-let accessToken;
-let refreshToken;
-
-try {
-  const tokens = JSON.parse(session);
-  accessToken = tokens.accessToken;
-  refreshToken = tokens.refreshToken;
-} catch {}
-
-if (!accessToken || !refreshToken) {
-  sessionStorage.removeItem('session');
-  location.replace('/login');
-}
-
 const errorMsg = document.querySelector('.error-msg');
 const logoutLink = document.getElementById('logout');
 
@@ -34,6 +18,44 @@ logoutLink.addEventListener('click', (e) => {
 });
 
 (async () => {
+  const queryParams = new URL(document.location).searchParams;
+  const authCode = queryParams.get('code');
+
+  console.log(authCode);
+  if (authCode) {
+    await axios({
+      method: 'post',
+      url: '/api/login/code',
+      data: { code: authCode },
+    })
+      .then(({ data }) => {
+        sessionStorage.setItem(
+          'session',
+          JSON.stringify({
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
+          })
+        );
+      })
+      .catch(() => null);
+  }
+
+  const session = sessionStorage.getItem('session');
+
+  let accessToken;
+  let refreshToken;
+
+  try {
+    const tokens = JSON.parse(session);
+    accessToken = tokens.accessToken;
+    refreshToken = tokens.refreshToken;
+  } catch {}
+
+  if (!accessToken || !refreshToken) {
+    sessionStorage.removeItem('session');
+    location.replace('/login');
+  }
+
   const timeBeforeAccessTokenExpiration =
     retrieveTimeBeforeAccessTokenExpiry(accessToken);
 

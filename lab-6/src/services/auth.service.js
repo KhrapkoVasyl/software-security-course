@@ -1,5 +1,6 @@
 import {
   AUTH0_AUDIENCE,
+  AUTH0_AUTHORIZE_REDIRECT_URI,
   AUTH0_CONNECTION,
   AUTH0_PASSWORD_GRANT_SCOPE,
 } from '../config.js';
@@ -21,6 +22,13 @@ class AuthService {
       password,
       scope: AUTH0_PASSWORD_GRANT_SCOPE,
       audience: AUTH0_AUDIENCE,
+    });
+  }
+
+  loginByAuthCode(code) {
+    return this.#authClient.oauth.authorizationCodeGrant({
+      code,
+      redirect_uri: AUTH0_AUTHORIZE_REDIRECT_URI,
     });
   }
 

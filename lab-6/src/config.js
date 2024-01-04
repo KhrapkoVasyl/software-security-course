@@ -17,7 +17,7 @@ export const AUTH0_AUTHORIZE_REDIRECT_URI = `http://${HOST}:${PORT}`;
 export const AUTH0_AUTHORIZE_RESPONSE_TYPE = 'code';
 export const AUTH0_AUTHORIZE_RESPONSE_MODE = 'query';
 export const AUTH0_AUTHORIZE_STATE = process.env.AUTH0_AUTHORIZE_STATE;
-export const AUTH0_AUTHORIZE_SCOPE = 'offline_access profile openid';
+export const AUTH0_AUTHORIZE_SCOPE = 'offline_access profile';
 
 export const AUTH0_AUTHORIZE_URI = url.format({
   protocol: 'https',
@@ -29,7 +29,6 @@ export const AUTH0_AUTHORIZE_URI = url.format({
     response_mode: AUTH0_AUTHORIZE_RESPONSE_MODE,
     scope: AUTH0_AUTHORIZE_SCOPE,
     state: AUTH0_AUTHORIZE_STATE,
+    audience: AUTH0_AUDIENCE,
   },
 });
-
-console.log(AUTH0_AUTHORIZE_URI);
